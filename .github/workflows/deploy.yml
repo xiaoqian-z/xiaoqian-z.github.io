@@ -23,12 +23,11 @@ jobs:
       - name: Install, build, and upload your site
         uses: withastro/action@v5
         with:
+          path: .
+          node-version: 22.13
           package-manager: pnpm@latest
           build-cmd: pnpm run build
-          path: .
-          node-version: 20
-        #env:
-          # 如果需要可在此处设置环境变量
+        env:
           # PUBLIC_POKEAPI: 'https://pokeapi.co/api/v2'
 
   deploy:
