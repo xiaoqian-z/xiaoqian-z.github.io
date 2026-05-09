@@ -20,7 +20,7 @@ import swup from '@swup/astro'
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://xiaoqian-z.github.io'.url || site.url,
+  site: 'https://xiaoqian-z.github.io',
   integrations: [
     tailwind(),
     react(),
