@@ -5,7 +5,6 @@ lastMod: 2026-05-11T23:49:16.758Z
 summary: 欢迎来到GenC，这是‘日常’第一篇，记录让一张普通A4纸身价翻倍的方法。
 category: 日常
 tags: [A4, machine]
-sticky: 1
 ---
 
 ## 记录原因
