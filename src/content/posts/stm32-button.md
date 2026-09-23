@@ -13,17 +13,17 @@ tags: [Button, cubemx, HAL, 定时器]
 
 ## 目标
 
-- 非<abbr title="执行某段程序时，CPU因为需要等待延时或者等待某个信号而被迫处于暂停状态一段时间，程序执行时间比较长或者时间不定">阻塞</abbr>同时按键**灵敏**
+- 非阻塞（执行某段程序时，CPU因为需要等待延时或者等待某个信号而被迫处于暂停状态一段时间，程序执行时间比较长或者时间不定）同时按键**灵敏**
 - 模块高度**封装**且主程序调用**简洁**
 - ~~ 长按时增加非线性 ~~
 
 ### **定时器**？外部中断？循环缓冲区？
 
-定时器:即计数器，<abbr title="AHB High-speed Clock">HCLK</abbr>通过**预分频器**为定时器提供时钟脉冲，当计数器接收到上升沿是计数值加一，当到达设定**计数值**时归零同时触发**中断**
+定时器:即计数器，HCLK (AHB High-speed Clock)通过**预分频器**为定时器提供时钟脉冲，当计数器接收到上升沿是计数值加一，当到达设定**计数值**时归零同时触发**中断**
 
 外部中断:当GPIO检测到上升沿或者下降沿时触发的中断(_通过外部中断可以避免反复扫描GPIO电平_)
 
-[ **循环缓冲区**](https://www.bilibili.com/video/BV1p75yzSEt9/?spm_id_from=333.1387.upload.video_card.click&vd_source=0c6556f00d4c6d1a537b6b57612d11a6):数据写指针和读指针循环读写的一块区域(本项目使用了视频中循环缓冲区的简化版本，_micro 循环缓冲区_)
+[**循环缓冲区**](https://www.bilibili.com/video/BV1p75yzSEt9/?spm_id_from=333.1387.upload.video_card.click&vd_source=0c6556f00d4c6d1a537b6b57612d11a6):数据写指针和读指针循环读写的一块区域(本项目使用了视频中循环缓冲区的简化版本，_micro 循环缓冲区_)
 
 ### CUBEMX配置
 
@@ -35,7 +35,7 @@ _新建工程_（略）
 
 ![图片描述](/Button/CUBEMX1.png 'GPIO配置')
 
-在<abbr title="Nested Vectored Interrupt Controller嵌套向量中断控制器">`NVIC`</abbr>中开启**GPIO中断**，框中打勾，由于我的按键引脚为PC0与PB6，对应`EXIT line0 interrupt`与`EXIT line[9,5] interrput`
+在NVIC (Nested Vectored Interrupt Controller 嵌套向量中断控制器)中开启**GPIO中断**，框中打勾，由于我的按键引脚为PC0与PB6，对应`EXIT line0 interrupt`与`EXIT line[9,5] interrput`
 
 ![图片描述](/Button/CUBEMX2.png 'GPIO中断配置')
 
@@ -60,20 +60,30 @@ $T_c$为**计数周期**，$f_H$为**时钟线HCLK频率**，$V_P$为**为分频
 ### 程序调用
 
 1. 先引入Button.c与Button.h文件
-
 2. 在Button.h文件中修改BUTTON_NUM
-
 3. 在Button.c文件中修改按键检测信息获取的if else，在定时器中断回调函数中更改定时器中断
-
-4. 在main.c中初始化缓冲区
+4. 在main.c外面初始化缓冲区
 
 ```main.c
 uint8_t ButtonBuffer[BUTTON_BUFFER_LENGTH]={0};//按键缓冲区
 uint8_t ButtonIndex[BUTTON_INDEX_LENGTH]={0};//按键缓冲索引区
 uint8_t* p_ButtonBuffer=ButtonBuffer;
+
+void ReaKey(void);
+
 ```
 
-5. 初始化按键响应函数，通过扩充case来增加按键数量
+在while循环中使用ReaKey();
+
+在main函数里面调用初始化函数
+
+```main.c
+
+Button_Init(ButtonBuffer,ButtonIndex);
+
+```
+
+初始化按键响应函数，通过扩充case来增加按键数量
 
 ```main.c
 void ReaKey() {
@@ -175,11 +185,11 @@ micro缓冲区写入程序
 
 ```Button.c
 void WriteDate(const uint8_t Date) {
-	if (B_Index[0]-B_Index[1]!=1) {//如果写索引比读索引大一，就说明缓存区已经满了
-		B_Buffer[B_Index[1]]=Date;//写入数据
-		B_Index[1]++;//写索引后移
-		B_Index[1]%=BUTTON_BUFFER_LENGTH;
-	}
+ if (B_Index[0]-B_Index[1]!=1) {//如果写索引比读索引大一，就说明缓存区已经满了
+  B_Buffer[B_Index[1]]=Date;//写入数据
+  B_Index[1]++;//写索引后移
+  B_Index[1]%=BUTTON_BUFFER_LENGTH;
+ }
 }
 ```
 
@@ -200,33 +210,33 @@ for (int j=0;j<BUTTON_RECEIVE_NUM;j++) {
 
 ```Button.c
 void Key_Detector(const uint16_t GPIO_Pin) {//
-	uint8_t Button_Label=0;//i为按键序号
-	uint8_t Button_Edge=0;//j为1下降沿或0上升沿
-	//按键检测信息获取
-	if (GPIO_Pin==KEY1_Pin) {
-		Button_Label=0;
-		if (HAL_GPIO_ReadPin(KEY1_GPIO_Port,KEY1_Pin)==GPIO_PIN_RESET)
-			Button_Edge=1;//否则B_j默认为零
-	}else if (GPIO_Pin==KEY2_Pin) {
-		Button_Label=1;
-		if (HAL_GPIO_ReadPin(KEY2_GPIO_Port,KEY2_Pin)==GPIO_PIN_RESET)
-			Button_Edge=1;//否则B_j默认为0
-	}
+ uint8_t Button_Label=0;//i为按键序号
+ uint8_t Button_Edge=0;//j为1下降沿或0上升沿
+ //按键检测信息获取
+ if (GPIO_Pin==KEY1_Pin) {
+  Button_Label=0;
+  if (HAL_GPIO_ReadPin(KEY1_GPIO_Port,KEY1_Pin)==GPIO_PIN_RESET)
+   Button_Edge=1;//否则B_j默认为零
+ }else if (GPIO_Pin==KEY2_Pin) {
+  Button_Label=1;
+  if (HAL_GPIO_ReadPin(KEY2_GPIO_Port,KEY2_Pin)==GPIO_PIN_RESET)
+   Button_Edge=1;//否则B_j默认为0
+ }
 
-	//处理按键信息
-	if (Key_UpdateTime[Button_Label]==0) {//按键更新冷却好了
-		if (Button_Edge==1&&(Key_Previous&1<<Button_Label)==0) {//下降沿
-			WriteDate(1+(Button_Label<<BUTTON_INFO_BYTE));//按键按下数据存入缓冲区
-			Key_Hold|=(1<<Button_Label);//按住不放
-			Key_UpdateTime[Button_Label]=KEY_UPDATE_TIME;//冷却时间
-			Key_Previous |= (1 << Button_Label);  // 使用 OR 操作设置位
-		}else if (Button_Edge==0&&(Key_Previous&(1<<Button_Label))!=0) {//上升沿
-			WriteDate(2+(Button_Label<<BUTTON_INFO_BYTE));//按键松开数据存入缓冲区
-			Key_Hold&=~(1<<Button_Label);//
-			Key_UpdateTime[Button_Label]=KEY_UPDATE_TIME;
-			Key_Previous &= ~(1 << Button_Label);  // 使用 AND 操作清除位
-		}
-	}
+ //处理按键信息
+ if (Key_UpdateTime[Button_Label]==0) {//按键更新冷却好了
+  if (Button_Edge==1&&(Key_Previous&1<<Button_Label)==0) {//下降沿
+   WriteDate(1+(Button_Label<<BUTTON_INFO_BYTE));//按键按下数据存入缓冲区
+   Key_Hold|=(1<<Button_Label);//按住不放
+   Key_UpdateTime[Button_Label]=KEY_UPDATE_TIME;//冷却时间
+   Key_Previous |= (1 << Button_Label);  // 使用 OR 操作设置位
+  }else if (Button_Edge==0&&(Key_Previous&(1<<Button_Label))!=0) {//上升沿
+   WriteDate(2+(Button_Label<<BUTTON_INFO_BYTE));//按键松开数据存入缓冲区
+   Key_Hold&=~(1<<Button_Label);//
+   Key_UpdateTime[Button_Label]=KEY_UPDATE_TIME;
+   Key_Previous &= ~(1 << Button_Label);  // 使用 AND 操作清除位
+  }
+ }
 }
 ```
 
@@ -234,51 +244,51 @@ void Key_Detector(const uint16_t GPIO_Pin) {//
 
 ```Button.c
 void Key_State_Analyze(void) {//
-	for (uint8_t n=0;n<BUTTON_NUM;n++) {
-		if (Key_Time[n]) {//如果开启按键计时
-			Key_Time[n]--;//时间减10ms
-		}
-		//按键冷却刷新
-		if (Key_UpdateTime[n]!=0) {
-			Key_UpdateTime[n]--;
-		}
-		//按键处理层，根据检测信息推测按键状态
-		//识别状态
-		if (Key_State[n]==0) {//状态0
-			if (Key_Hold&(1<<n)) {//如果按键保持按下
-				Key_Time[n]=KEY_LONG_TIME;//等待长按时间
-				Key_State[n]=1;//进入状态1
-			}
-		}else if (Key_State[n]==1) {//状态1
-			if ((Key_Hold&(1<<n))==0) {//如果按键已经松开
-				Key_Time[n]=KEY_DOUBLE_TIME;//设置双击阈值时间
-				Key_State[n]=2;//进入状态2
-			}else if (Key_Time[n]==0) {//如果长按阈值达到
-				Key_State[n]=4;//进入状态4
-				WriteDate(5+(n<<BUTTON_INFO_BYTE));//长按事件数据存入缓冲区
-				Key_Time[n]=KEY_REPEAT_TIME;
-			}
-		}else if (Key_State[n]==2) {//状态2
-			if (Key_Hold&(1<<n)) {
-				Key_State[n]=3;//进入状态3
-				WriteDate(4+(n<<BUTTON_INFO_BYTE));//双击事件数据存入缓冲区
-			}else if (Key_Time[n]==0) {//错过双击时间
-				Key_State[n]=0;//回归状态0
-				WriteDate(3+(n<<BUTTON_INFO_BYTE));//单击事件数据存入缓冲区
-			}
-		}else if (Key_State[n]==3) {//状态3
-			if ((Key_Hold&(1<<n))==0) {//如果按键松开
-				Key_State[n]=0;//回归状态0
-			}
-		}else {//状态4
-			if ((Key_Hold&(1<<n))==0) {//如果按键松开
-				Key_State[n]=0;//回归状态0
-			}else if (Key_Time[n]==0) {
-				WriteDate(6+(n<<BUTTON_INFO_BYTE));//重复事件数据存入缓冲区
-				Key_Time[n]=KEY_REPEAT_TIME;//重新计时
-			}
-		}
-	}
+ for (uint8_t n=0;n<BUTTON_NUM;n++) {
+  if (Key_Time[n]) {//如果开启按键计时
+   Key_Time[n]--;//时间减10ms
+  }
+  //按键冷却刷新
+  if (Key_UpdateTime[n]!=0) {
+   Key_UpdateTime[n]--;
+  }
+  //按键处理层，根据检测信息推测按键状态
+  //识别状态
+  if (Key_State[n]==0) {//状态0
+   if (Key_Hold&(1<<n)) {//如果按键保持按下
+    Key_Time[n]=KEY_LONG_TIME;//等待长按时间
+    Key_State[n]=1;//进入状态1
+   }
+  }else if (Key_State[n]==1) {//状态1
+   if ((Key_Hold&(1<<n))==0) {//如果按键已经松开
+    Key_Time[n]=KEY_DOUBLE_TIME;//设置双击阈值时间
+    Key_State[n]=2;//进入状态2
+   }else if (Key_Time[n]==0) {//如果长按阈值达到
+    Key_State[n]=4;//进入状态4
+    WriteDate(5+(n<<BUTTON_INFO_BYTE));//长按事件数据存入缓冲区
+    Key_Time[n]=KEY_REPEAT_TIME;
+   }
+  }else if (Key_State[n]==2) {//状态2
+   if (Key_Hold&(1<<n)) {
+    Key_State[n]=3;//进入状态3
+    WriteDate(4+(n<<BUTTON_INFO_BYTE));//双击事件数据存入缓冲区
+   }else if (Key_Time[n]==0) {//错过双击时间
+    Key_State[n]=0;//回归状态0
+    WriteDate(3+(n<<BUTTON_INFO_BYTE));//单击事件数据存入缓冲区
+   }
+  }else if (Key_State[n]==3) {//状态3
+   if ((Key_Hold&(1<<n))==0) {//如果按键松开
+    Key_State[n]=0;//回归状态0
+   }
+  }else {//状态4
+   if ((Key_Hold&(1<<n))==0) {//如果按键松开
+    Key_State[n]=0;//回归状态0
+   }else if (Key_Time[n]==0) {
+    WriteDate(6+(n<<BUTTON_INFO_BYTE));//重复事件数据存入缓冲区
+    Key_Time[n]=KEY_REPEAT_TIME;//重新计时
+   }
+  }
+ }
 }
 ```
 
